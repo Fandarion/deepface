@@ -14,7 +14,7 @@ from deepface.extendedmodels import Age
 from deepface.commons import functions, realtime, distance as dst
 
 def analysis(db_path, model_name, distance_metric, enable_face_analysis = True
-				, source = 0, time_threshold = 5, frame_threshold = 5):
+				, source = 0, time_threshold = 5, frame_threshold = 5, callback = None):
 
 	input_shape = (224, 224); input_shape_x = input_shape[0]; input_shape_y = input_shape[1]
 
@@ -437,8 +437,18 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True
 
 				cv2.rectangle(freeze_img, (10, 10), (90, 50), (67,67,67), -10)
 				cv2.putText(freeze_img, str(time_left), (40, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1)
-
-				cv2.imshow('img', freeze_img)
+				
+				print('callback type ',type(callback))
+				if callback:
+						print('callback')
+						# numpy_horizontal_concat = np.concatenate((raw_img, freeze_img), axis=1)
+						callback(raw_img, freeze_img)
+						# cv2.imshow('img', numpy_horizontal_concat)
+					# if freezed_frame == 0:
+					# 		callback(freeze_img)
+				else:
+						print('no callback')
+						cv2.imshow('img', freeze_img)
 
 				freezed_frame = freezed_frame + 1
 			else:
@@ -448,7 +458,8 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True
 				freezed_frame = 0
 
 		else:
-			cv2.imshow('img',img)
+    			if not callback:
+    					cv2.imshow('img',img)
 
 		if cv2.waitKey(1) & 0xFF == ord('q'): #press q to quit
 			break

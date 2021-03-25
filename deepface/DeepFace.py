@@ -728,7 +728,7 @@ def find(img_path, db_path, model_name ='VGG-Face', distance_metric = 'cosine', 
 		
 def stream(db_path = '', model_name ='VGG-Face', distance_metric = 'cosine'
 			, enable_face_analysis = True
-			, source = 0, time_threshold = 5, frame_threshold = 5):
+			, source = 0, time_threshold = 5, frame_threshold = 5, callback = None):
 	
 	"""
 	This function applies real time face recognition and facial attribute analysis
@@ -759,7 +759,7 @@ def stream(db_path = '', model_name ='VGG-Face', distance_metric = 'cosine'
 	functions.initialize_detector(detector_backend = 'opencv')
 	
 	realtime.analysis(db_path, model_name, distance_metric, enable_face_analysis
-						, source = source, time_threshold = time_threshold, frame_threshold = frame_threshold)
+						, source = source, time_threshold = time_threshold, frame_threshold = frame_threshold, callback = callback)
 
 def detectFace(img_path, detector_backend = 'mtcnn'):
 	

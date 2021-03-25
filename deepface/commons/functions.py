@@ -186,7 +186,7 @@ def load_image(img):
 	
 	return img
 	
-def detect_face(img, detector_backend = 'opencv', grayscale = False, enforce_detection = True):
+def detect_face(img, detector_backend = 'opencv', grayscale = False, enforce_detection = True, get_all_result = False):
 	
 	home = str(Path.home())
 	
@@ -206,9 +206,22 @@ def detect_face(img, detector_backend = 'opencv', grayscale = False, enforce_det
 			pass
 		
 		if len(faces) > 0:
-			x,y,w,h = faces[0] #focus on the 1st face found in the image
-			detected_face = img[int(y):int(y+h), int(x):int(x+w)]
-			return detected_face, [x, y, w, h]
+				if get_all_result:
+					# HACK to return all the faces
+					# ***********************************************
+					detected_faces = []
+					regions = []
+					for face in faces:
+						x,y,w,h = face #focus on the 1st face found in the image
+						detected_faces.append(img[int(y):int(y+h), int(x):int(x+w)])
+						regions.append([x, y, w, h])
+					return detected_faces, regions
+				else:
+				# # ORIGINAL
+				# # ***********************************************
+					x,y,w,h = faces[0] #focus on the 1st face found in the image
+					detected_face = img[int(y):int(y+h), int(x):int(x+w)]
+					return detected_face, [x, y, w, h]
 		
 		else: #if no face detected
 	
@@ -249,20 +262,37 @@ def detect_face(img, detector_backend = 'opencv', grayscale = False, enforce_det
 		detections_df['top'] = (detections_df['top'] * 300).astype(int)
 		
 		if detections_df.shape[0] > 0:
-			
-			#TODO: sort detections_df
-			
-			#get the first face in the image	
-			instance = detections_df.iloc[0]
-			
-			left = instance["left"]
-			right = instance["right"]
-			bottom = instance["bottom"]
-			top = instance["top"]
-			
-			detected_face = base_img[int(top*aspect_ratio_y):int(bottom*aspect_ratio_y), int(left*aspect_ratio_x):int(right*aspect_ratio_x)]
-			
-			return detected_face, [int(left*aspect_ratio_x), int(top*aspect_ratio_y), int(right*aspect_ratio_x) - int(left*aspect_ratio_x), int(bottom*aspect_ratio_y) - int(top*aspect_ratio_y)]
+					if get_all_result:
+						
+							# HACK to return all the faces
+							# ***********************************************
+							detected_faces = []
+							regions = []
+							for face in detections_df.iloc:
+								
+								left = face["left"]
+								right = face["right"]
+								bottom = face["bottom"]
+								top = face["top"]
+								
+								detected_face = base_img[int(top*aspect_ratio_y):int(bottom*aspect_ratio_y), int(left*aspect_ratio_x):int(right*aspect_ratio_x)]
+								detected_faces.append(detected_face)
+								regions.append([int(left*aspect_ratio_x), int(top*aspect_ratio_y), int(right*aspect_ratio_x) - int(left*aspect_ratio_x), int(bottom*aspect_ratio_y) - int(top*aspect_ratio_y)])
+							return detected_faces, regions
+
+					else:
+							#TODO: sort detections_df
+							#get the first face in the image	
+							instance = detections_df.iloc[0]
+							
+							left = instance["left"]
+							right = instance["right"]
+							bottom = instance["bottom"]
+							top = instance["top"]
+							
+							detected_face = base_img[int(top*aspect_ratio_y):int(bottom*aspect_ratio_y), int(left*aspect_ratio_x):int(right*aspect_ratio_x)]
+							
+							return detected_face, [int(left*aspect_ratio_x), int(top*aspect_ratio_y), int(right*aspect_ratio_x) - int(left*aspect_ratio_x), int(bottom*aspect_ratio_y) - int(top*aspect_ratio_y)]
 			
 		else: #if no face detected
 	
@@ -278,14 +308,28 @@ def detect_face(img, detector_backend = 'opencv', grayscale = False, enforce_det
 		detections = face_detector(img, 1)
 		
 		if len(detections) > 0:
-			
-			for idx, d in enumerate(detections):
-				left = d.left(); right = d.right()
-				top = d.top(); bottom = d.bottom()
-				
-				detected_face = img[top:bottom, left:right]
-				
-				return detected_face, [left, right, right - left, bottom - top]
+					if get_all_result:
+							# HACK to return all the faces
+							# ***********************************************
+							detected_faces = []
+							regions = []
+							for face in detections:
+
+								left = face.left(); right = face.right()
+								top = face.top(); bottom = face.bottom()
+								
+								detected_face = img[top:bottom, left:right]
+								detected_faces.append(detected_face)
+								regions.append([left, right, right - left, bottom - top])
+							return detected_faces, regions
+					else:
+							for idx, d in enumerate(detections):
+								left = d.left(); right = d.right()
+								top = d.top(); bottom = d.bottom()
+								
+								detected_face = img[top:bottom, left:right]
+								
+								return detected_face, [left, right, right - left, bottom - top]
 			
 		else: #if no face detected
 	
@@ -301,10 +345,22 @@ def detect_face(img, detector_backend = 'opencv', grayscale = False, enforce_det
 		detections = face_detector.detect_faces(img_rgb)
 		
 		if len(detections) > 0:
-			detection = detections[0]
-			x, y, w, h = detection["box"]
-			detected_face = img[int(y):int(y+h), int(x):int(x+w)]
-			return detected_face, [x, y, w, h]
+					if get_all_result:
+							# HACK to return all the faces
+							# ***********************************************
+							detected_faces = []
+							regions = []
+							for face in detections:
+								x, y, w, h = face["box"]
+								detected_face = img[int(y):int(y+h), int(x):int(x+w)]
+								detected_faces.append(detected_face)
+								regions.append([x, y, w, h])
+							return detected_faces, regions
+					else:
+							detection = detections[0]
+							x, y, w, h = detection["box"]
+							detected_face = img[int(y):int(y+h), int(x):int(x+w)]
+							return detected_face, [x, y, w, h]
 		
 		else: #if no face detected
 			if not enforce_detection:			

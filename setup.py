@@ -4,14 +4,14 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="deepface",  
-    version="0.0.50",
-    author="Sefik Ilkin Serengil",
+    name="deepface fork",  
+    version="0.0.51",
+    author="Sefik Ilkin Serengil, Fandarion",
     author_email="serengil@gmail.com",
-    description="A Lightweight Face Recognition and Facial Attribute Analysis Framework (Age, Gender, Emotion, Race) for Python",
+    description="A fork of the Lightweight Face Recognition and Facial Attribute Analysis Framework (Age, Gender, Emotion, Race) for Python. Essentially adding callback functions to allow rendering options",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/serengil/deepface",
+    url="https://github.com/fandarion/deepface",
     packages=setuptools.find_packages(),
     scripts=['deepface/models/face-recognition-ensemble-model.txt'],
     classifiers=[

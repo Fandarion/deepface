@@ -438,9 +438,7 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True
 				cv2.rectangle(freeze_img, (10, 10), (90, 50), (67,67,67), -10)
 				cv2.putText(freeze_img, str(time_left), (40, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 1)
 				
-				print('callback type ',type(callback))
 				if callback:
-						print('callback')
 						# numpy_horizontal_concat = np.concatenate((raw_img, freeze_img), axis=1)
 						callback(raw_img, freeze_img)
 						# cv2.imshow('img', numpy_horizontal_concat)

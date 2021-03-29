@@ -749,7 +749,6 @@ def stream(db_path = '', model_name ='VGG-Face', distance_metric = 'cosine'
 		frame_threshold (int): how many frames required to focus on face
 		
 	"""
-	
 	if time_threshold < 1:
 		raise ValueError("time_threshold must be greater than the value 1 but you passed "+str(time_threshold))
 	
@@ -772,7 +771,7 @@ def detectFace(img_path, detector_backend = 'mtcnn'):
 		detector_backend (string): face detection backends are mtcnn, opencv, ssd or dlib
 	
 	Returns:
-		deteced and aligned face in numpy format
+		detected and aligned face in numpy format
 	"""
 	
 	functions.initialize_detector(detector_backend = detector_backend)

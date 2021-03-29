@@ -75,24 +75,28 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True
 	#find embeddings for employee list
 
 	tic = time.time()
+	## TODO Add parameter to manage embedding file management
+	if False:
+		pbar = tqdm(range(0, len(employees)), desc='Finding embeddings')
+		
+		embeddings = []
+		#for employee in employees:
+		for index in pbar:
+			employee = employees[index]
+			pbar.set_description("Finding embedding for %s" % (employee.split("/")[-1]))
+			embedding = []
+			img = functions.preprocess_face(img = employee, target_size = (input_shape_y, input_shape_x), enforce_detection = False)
+			img_representation = model.predict(img)[0,:]
 
-	pbar = tqdm(range(0, len(employees)), desc='Finding embeddings')
-
-	embeddings = []
-	#for employee in employees:
-	for index in pbar:
-		employee = employees[index]
-		pbar.set_description("Finding embedding for %s" % (employee.split("/")[-1]))
-		embedding = []
-		img = functions.preprocess_face(img = employee, target_size = (input_shape_y, input_shape_x), enforce_detection = False)
-		img_representation = model.predict(img)[0,:]
-
-		embedding.append(employee)
-		embedding.append(img_representation)
-		embeddings.append(embedding)
-
-	df = pd.DataFrame(embeddings, columns = ['employee', 'embedding'])
-	df['distance_metric'] = distance_metric
+			embedding.append(employee)
+			embedding.append(img_representation)
+			embeddings.append(embedding)
+		
+		df = pd.DataFrame(embeddings, columns = ['employee', 'embedding'])
+		df['distance_metric'] = distance_metric
+		df.to_pickle("__test_realtime_deepface_finding_embed.pkl")
+	else:
+		df = pd.read_pickle("__test_realtime_deepface_finding_embed.pkl")
 
 	toc = time.time()
 

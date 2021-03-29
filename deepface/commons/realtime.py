@@ -1,4 +1,5 @@
 import os
+from pandas.io.pickle import read_pickle
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
@@ -13,9 +14,37 @@ from deepface import DeepFace
 from deepface.extendedmodels import Age
 from deepface.commons import functions, realtime, distance as dst
 
-def analysis(db_path, model_name, distance_metric, enable_face_analysis = True
-				, source = 0, time_threshold = 5, frame_threshold = 5, callback = None):
 
+def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, face_analysis_axes = ['emotion', 'age', 'gender'],
+				source = 0, time_threshold = 5, frame_threshold = 5, callback = None, detector_backend = 'opencv',
+				learn_mode = False, use_cache=False, cache_dir=''):
+	"""Args:
+		db_path (str): image files database directory
+		model_name (str): model use to performed face recognition. Mandatory in ['VGG-Face', 'OpenFace', 'Facenet', 'DeepFace', 'DeepID', 'Dlib', 'ArcFace']
+		distance_metric (str): distance metrics type mandatory in ['cosine', 'euclidean', 'eulidean_l2']
+		enable_face_analysis (bool, optional): Enable face_analysis regarding to face_analysis_axes configuration.
+			Defaults to True.
+		face_analysis_axes (list, optional): Allow to use partial face_analysis.
+			Defaults to ['emotion', 'age', 'gender'] ie. all the implements capabilities.
+		source (int, optional): [description]. Defaults to 0.
+		time_threshold (int, optional): [description]. Defaults to 5.
+		frame_threshold (int, optional): [description]. Defaults to 5.
+		callback (func, optional): callback function to allow flexible usage.
+			Defaults to None. In this case realtime is displayed in standard cv2.imshow() mode
+		detector_backend (str, optional): [description]. Defaults to 'opencv'.
+		learn_mode (bool, optional): Activate only learn mode and diable realtime detection.
+			Defaults to False.
+		use_cache (bool, optional): don't use cache files and restart learning from scratch.
+			Defaults to False to conserve base comportment.
+		cache_dir (str, optional): directory of the cache files (csv and pkl).
+			Defaults to ''. In this case cache files are stored or used in .cache/deepface/database relatively to __main__ directory
+
+	Raises:
+		ValueError: [description]
+
+	Returns:
+		[type]: [description]
+	"""
 	input_shape = (224, 224); input_shape_x = input_shape[0]; input_shape_y = input_shape[1]
 
 	text_color = (255,255,255)
@@ -51,56 +80,100 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True
 		threshold = dst.findThreshold(model_name, distance_metric)
 
 	#------------------------
-	#facial attribute analysis models
-
-	if enable_face_analysis == True:
-
-		tic = time.time()
-
-		emotion_model = DeepFace.build_model('Emotion')
-		print("Emotion model loaded")
-
-		age_model = DeepFace.build_model('Age')
-		print("Age model loaded")
-
-		gender_model = DeepFace.build_model('Gender')
-		print("Gender model loaded")
-
-		toc = time.time()
-
-		print("Facial attibute analysis models loaded in ",toc-tic," seconds")
-
-	#------------------------
 
 	#find embeddings for employee list
 
 	tic = time.time()
 	## TODO Add parameter to manage embedding file management
-	if False:
-		pbar = tqdm(range(0, len(employees)), desc='Finding embeddings')
-		
+	# if True:
+	pbar = tqdm(range(0, len(employees)), desc='Finding embeddings')
+	embeddings_file = cache_dir + "/deepface_{}_{}_{}.pkl".format(detector_backend, model_name, distance_metric)
+	embeddings_done_file = cache_dir + "/deepface_{}_{}_{}.csv".format(detector_backend, model_name, distance_metric)
+
+	if use_cache and os.path.isdir(cache_dir) and os.path.isfile(embeddings_file) and os.path.isfile(embeddings_done_file):
+		embeddings = pd.read_pickle(embeddings_file)
+		embeddings.drop('distance_metric', inplace=True, axis=1)
+		embeddings = embeddings.values
+		embeddings_done_raw = pd.read_csv(embeddings_done_file, usecols=[1,2])
+		embeddings_done = embeddings_done_raw.values
+	else:
 		embeddings = []
-		#for employee in employees:
-		for index in pbar:
-			employee = employees[index]
-			pbar.set_description("Finding embedding for %s" % (employee.split("/")[-1]))
+		embeddings_done = []
+		embeddings_done_raw = pd.DataFrame([], columns = ['file', 'sha256'])
+	#for employee in employees:
+	new_file = False
+	for index in pbar:
+		employee = employees[index]
+		pbar.set_description("Finding embedding for %s" % (employee.split("/")[-1]))
+		sha256 = functions.sha256sum(employee)
+		if not embeddings_done_raw.loc[embeddings_done_raw['sha256'] == sha256].any()[0]:
 			embedding = []
-			img = functions.preprocess_face(img = employee, target_size = (input_shape_y, input_shape_x), enforce_detection = False)
+			img = functions.preprocess_face(img = employee, target_size = (input_shape_y, input_shape_x), enforce_detection = False, detector_backend=detector_backend)
 			img_representation = model.predict(img)[0,:]
 
 			embedding.append(employee)
 			embedding.append(img_representation)
 			embeddings.append(embedding)
-		
+			embedding_done = []
+			embedding_done.append(employee)
+			embedding_done.append(sha256)
+			embeddings_done.append(embedding_done)
+			new_file = True
+
+	if use_cache and new_file:
 		df = pd.DataFrame(embeddings, columns = ['employee', 'embedding'])
 		df['distance_metric'] = distance_metric
-		df.to_pickle("__test_realtime_deepface_finding_embed.pkl")
+		df_check = pd.DataFrame(embeddings_done, columns = ['file', 'sha256'])
+		df.to_pickle(embeddings_file)
+		df_check.to_csv(embeddings_done_file)
+		toc = time.time()
+		print("fichiers pkl et csv créés en {:0.3f}".format(toc-tic))
 	else:
-		df = pd.read_pickle("__test_realtime_deepface_finding_embed.pkl")
+		df = pd.DataFrame(embeddings, columns = ['employee', 'embedding'])
+		df['distance_metric'] = distance_metric
+
+	embeddings_done_raw = None
+
+	if learn_mode:
+    	# Don't performed realtime face recognition
+		return
 
 	toc = time.time()
 
 	print("Embeddings found for given data set in ", toc-tic," seconds")
+
+	#------------------------
+	#facial attribute analysis models
+	if not learn_mode:
+		if enable_face_analysis == True:
+			nb_axis = 0
+
+			tic = time.time()
+			if 'emotion' in face_analysis_axes:
+				emotion_model = DeepFace.build_model('Emotion')
+				print("Emotion model loaded")
+				nb_axis = nb_axis + 1
+
+			if 'age' in face_analysis_axes:
+				age_model = DeepFace.build_model('Age')
+				print("Age model loaded")
+				nb_axis = nb_axis + 1
+			if 'race' in face_analysis_axes:
+				race_model = DeepFace.build_model('Race')
+				print("Race model loaded")
+				nb_axis = nb_axis + 1
+			if 'gender' in face_analysis_axes:
+				gender_model = DeepFace.build_model('Gender')
+				print("Gender model loaded")
+				nb_axis = nb_axis + 1
+			if nb_axis == 0:
+				raise ValueError("You want to execute face analysis but face_analysis_axes has no correct value in ['emotion', 'age', 'gendre']")
+			else:
+				print('{} analysis axes required: {}'.format(nb_axis, face_analysis_axes))
+
+			toc = time.time()
+
+			print("Facial attibute analysis models loaded in ",toc-tic," seconds")
 
 	#-----------------------
 
@@ -198,136 +271,145 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True
 						#facial attribute analysis
 
 						if enable_face_analysis == True:
+							if 'emotion' in face_analysis_axes:
+    
+								gray_img = functions.preprocess_face(img = custom_face, target_size = (48, 48), grayscale = True, enforce_detection = False)
+								emotion_labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
+								emotion_predictions = emotion_model.predict(gray_img)[0,:]
+								sum_of_predictions = emotion_predictions.sum()
 
-							gray_img = functions.preprocess_face(img = custom_face, target_size = (48, 48), grayscale = True, enforce_detection = False)
-							emotion_labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
-							emotion_predictions = emotion_model.predict(gray_img)[0,:]
-							sum_of_predictions = emotion_predictions.sum()
+								mood_items = []
+								for i in range(0, len(emotion_labels)):
+									mood_item = []
+									emotion_label = emotion_labels[i]
+									emotion_prediction = 100 * emotion_predictions[i] / sum_of_predictions
+									mood_item.append(emotion_label)
+									mood_item.append(emotion_prediction)
+									mood_items.append(mood_item)
 
-							mood_items = []
-							for i in range(0, len(emotion_labels)):
-								mood_item = []
-								emotion_label = emotion_labels[i]
-								emotion_prediction = 100 * emotion_predictions[i] / sum_of_predictions
-								mood_item.append(emotion_label)
-								mood_item.append(emotion_prediction)
-								mood_items.append(mood_item)
+								emotion_df = pd.DataFrame(mood_items, columns = ["emotion", "score"])
+								emotion_df = emotion_df.sort_values(by = ["score"], ascending=False).reset_index(drop=True)
 
-							emotion_df = pd.DataFrame(mood_items, columns = ["emotion", "score"])
-							emotion_df = emotion_df.sort_values(by = ["score"], ascending=False).reset_index(drop=True)
+								#background of mood box
 
-							#background of mood box
-
-							#transparency
-							overlay = freeze_img.copy()
-							opacity = 0.4
-
-							if x+w+pivot_img_size < resolution_x:
-								#right
-								cv2.rectangle(freeze_img
-									#, (x+w,y+20)
-									, (x+w,y)
-									, (x+w+pivot_img_size, y+h)
-									, (64,64,64),cv2.FILLED)
-
-								cv2.addWeighted(overlay, opacity, freeze_img, 1 - opacity, 0, freeze_img)
-
-							elif x-pivot_img_size > 0:
-								#left
-								cv2.rectangle(freeze_img
-									#, (x-pivot_img_size,y+20)
-									, (x-pivot_img_size,y)
-									, (x, y+h)
-									, (64,64,64),cv2.FILLED)
-
-								cv2.addWeighted(overlay, opacity, freeze_img, 1 - opacity, 0, freeze_img)
-
-							for index, instance in emotion_df.iterrows():
-								emotion_label = "%s " % (instance['emotion'])
-								emotion_score = instance['score']/100
-
-								bar_x = 35 #this is the size if an emotion is 100%
-								bar_x = int(bar_x * emotion_score)
+								#transparency
+								overlay = freeze_img.copy()
+								opacity = 0.4
 
 								if x+w+pivot_img_size < resolution_x:
+									#right
+									cv2.rectangle(freeze_img
+										#, (x+w,y+20)
+										, (x+w,y)
+										, (x+w+pivot_img_size, y+h)
+										, (64,64,64),cv2.FILLED)
 
-									text_location_y = y + 20 + (index+1) * 20
-									text_location_x = x+w
-
-									if text_location_y < y + h:
-										cv2.putText(freeze_img, emotion_label, (text_location_x, text_location_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-
-										cv2.rectangle(freeze_img
-											, (x+w+70, y + 13 + (index+1) * 20)
-											, (x+w+70+bar_x, y + 13 + (index+1) * 20 + 5)
-											, (255,255,255), cv2.FILLED)
+									cv2.addWeighted(overlay, opacity, freeze_img, 1 - opacity, 0, freeze_img)
 
 								elif x-pivot_img_size > 0:
+									#left
+									cv2.rectangle(freeze_img
+										#, (x-pivot_img_size,y+20)
+										, (x-pivot_img_size,y)
+										, (x, y+h)
+										, (64,64,64),cv2.FILLED)
 
-									text_location_y = y + 20 + (index+1) * 20
-									text_location_x = x-pivot_img_size
+									cv2.addWeighted(overlay, opacity, freeze_img, 1 - opacity, 0, freeze_img)
 
-									if text_location_y <= y+h:
-										cv2.putText(freeze_img, emotion_label, (text_location_x, text_location_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+								for index, instance in emotion_df.iterrows():
+									emotion_label = "%s " % (instance['emotion'])
+									emotion_score = instance['score']/100
 
-										cv2.rectangle(freeze_img
-											, (x-pivot_img_size+70, y + 13 + (index+1) * 20)
-											, (x-pivot_img_size+70+bar_x, y + 13 + (index+1) * 20 + 5)
-											, (255,255,255), cv2.FILLED)
+									bar_x = 35 #this is the size if an emotion is 100%
+									bar_x = int(bar_x * emotion_score)
 
+									if x+w+pivot_img_size < resolution_x:
+
+										text_location_y = y + 20 + (index+1) * 20
+										text_location_x = x+w
+
+										if text_location_y < y + h:
+											cv2.putText(freeze_img, emotion_label, (text_location_x, text_location_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+											cv2.rectangle(freeze_img
+												, (x+w+70, y + 13 + (index+1) * 20)
+												, (x+w+70+bar_x, y + 13 + (index+1) * 20 + 5)
+												, (255,255,255), cv2.FILLED)
+
+									elif x-pivot_img_size > 0:
+
+										text_location_y = y + 20 + (index+1) * 20
+										text_location_x = x-pivot_img_size
+
+										if text_location_y <= y+h:
+											cv2.putText(freeze_img, emotion_label, (text_location_x, text_location_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
+											cv2.rectangle(freeze_img
+												, (x-pivot_img_size+70, y + 13 + (index+1) * 20)
+												, (x-pivot_img_size+70+bar_x, y + 13 + (index+1) * 20 + 5)
+												, (255,255,255), cv2.FILLED)
+							analysis_report = ''
 							#-------------------------------
-
 							face_224 = functions.preprocess_face(img = custom_face, target_size = (224, 224), grayscale = False, enforce_detection = False)
 
-							age_predictions = age_model.predict(face_224)[0,:]
-							apparent_age = Age.findApparentAge(age_predictions)
+							if 'age' in face_analysis_axes:
+
+								age_predictions = age_model.predict(face_224)[0,:]
+								apparent_age = Age.findApparentAge(age_predictions)
+
+								analysis_report = str(int(apparent_age)) + " "
 
 							#-------------------------------
+							if 'gender' in face_analysis_axes:
+    
+								gender_prediction = gender_model.predict(face_224)[0,:]
 
-							gender_prediction = gender_model.predict(face_224)[0,:]
+								if np.argmax(gender_prediction) == 0:
+									gender = "W"
+								elif np.argmax(gender_prediction) == 1:
+									gender = "M"
 
-							if np.argmax(gender_prediction) == 0:
-								gender = "W"
-							elif np.argmax(gender_prediction) == 1:
-								gender = "M"
+								#print(str(int(apparent_age))," years old ", dominant_emotion, " ", gender)
 
-							#print(str(int(apparent_age))," years old ", dominant_emotion, " ", gender)
-
-							analysis_report = str(int(apparent_age))+" "+gender
+								analysis_report = analysis_report + gender
 
 							#-------------------------------
+							if analysis_report != '':
+									if len(analysis_report)==1:
+											analysis_report = "   " + analysis_report.strip() + "   "
+									elif len(analysis_report) == 3:
+											analysis_report = "  " + analysis_report.strip() + "  "
+									info_box_color = (46,200,255)
 
-							info_box_color = (46,200,255)
+									#top
+									if y - pivot_img_size + int(pivot_img_size/5) > 0:
 
-							#top
-							if y - pivot_img_size + int(pivot_img_size/5) > 0:
+										triangle_coordinates = np.array( [
+											(x+int(w/2), y)
+											, (x+int(w/2)-int(w/10), y-int(pivot_img_size/3))
+											, (x+int(w/2)+int(w/10), y-int(pivot_img_size/3))
+										] )
 
-								triangle_coordinates = np.array( [
-									(x+int(w/2), y)
-									, (x+int(w/2)-int(w/10), y-int(pivot_img_size/3))
-									, (x+int(w/2)+int(w/10), y-int(pivot_img_size/3))
-								] )
+										cv2.drawContours(freeze_img, [triangle_coordinates], 0, info_box_color, -1)
 
-								cv2.drawContours(freeze_img, [triangle_coordinates], 0, info_box_color, -1)
+										cv2.rectangle(freeze_img, (x+int(w/5), y-pivot_img_size+int(pivot_img_size/5)), (x+w-int(w/5), y-int(pivot_img_size/3)), info_box_color, cv2.FILLED)
 
-								cv2.rectangle(freeze_img, (x+int(w/5), y-pivot_img_size+int(pivot_img_size/5)), (x+w-int(w/5), y-int(pivot_img_size/3)), info_box_color, cv2.FILLED)
+										cv2.putText(freeze_img, analysis_report, (x+int(w/3.5), y - int(pivot_img_size/2.1)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 111, 255), 2)
 
-								cv2.putText(freeze_img, analysis_report, (x+int(w/3.5), y - int(pivot_img_size/2.1)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 111, 255), 2)
+									#bottom
+									elif y + h + pivot_img_size - int(pivot_img_size/5) < resolution_y:
 
-							#bottom
-							elif y + h + pivot_img_size - int(pivot_img_size/5) < resolution_y:
+										triangle_coordinates = np.array( [
+											(x+int(w/2), y+h)
+											, (x+int(w/2)-int(w/10), y+h+int(pivot_img_size/3))
+											, (x+int(w/2)+int(w/10), y+h+int(pivot_img_size/3))
+										] )
 
-								triangle_coordinates = np.array( [
-									(x+int(w/2), y+h)
-									, (x+int(w/2)-int(w/10), y+h+int(pivot_img_size/3))
-									, (x+int(w/2)+int(w/10), y+h+int(pivot_img_size/3))
-								] )
+										cv2.drawContours(freeze_img, [triangle_coordinates], 0, info_box_color, -1)
 
-								cv2.drawContours(freeze_img, [triangle_coordinates], 0, info_box_color, -1)
+										cv2.rectangle(freeze_img, (x+int(w/5), y + h + int(pivot_img_size/3)), (x+w-int(w/5), y+h+pivot_img_size-int(pivot_img_size/5)), info_box_color, cv2.FILLED)
 
-								cv2.rectangle(freeze_img, (x+int(w/5), y + h + int(pivot_img_size/3)), (x+w-int(w/5), y+h+pivot_img_size-int(pivot_img_size/5)), info_box_color, cv2.FILLED)
-
-								cv2.putText(freeze_img, analysis_report, (x+int(w/3.5), y + h + int(pivot_img_size/1.5)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 111, 255), 2)
+										cv2.putText(freeze_img, analysis_report, (x+int(w/3.5), y + h + int(pivot_img_size/1.5)), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 111, 255), 2)
 
 						#-------------------------------
 						#face recognition

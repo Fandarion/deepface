@@ -147,6 +147,24 @@ def initializeFolder():
 		os.mkdir(home+"/.deepface/weights")
 		print("Directory ",home,"/.deepface/weights created")
 
+def sha256sum(filename):
+    """calcul le sha256 d'un fichier
+
+    Args:
+        filename (str): répertoire du fichier à hash
+
+    Returns:
+        str: valeur du hash du fichier
+    """
+    h  = hashlib.sha256()
+    b  = bytearray(128*1024)
+    mv = memoryview(b)
+    with open(filename, 'rb', buffering=0) as f:
+        for n in iter(lambda : f.readinto(mv), 0):
+            h.update(mv[:n])
+    # print(filename,': ',time.time()-startTime)
+    return h.hexdigest()
+
 def loadBase64Img(uri):
    encoded_data = uri.split(',')[1]
    nparr = np.fromstring(base64.b64decode(encoded_data), np.uint8)

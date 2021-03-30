@@ -173,7 +173,7 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, 
 
 			toc = time.time()
 
-			print("Facial attibute analysis models loaded in ",toc-tic," seconds")
+			print("Facial attibute analysis models loaded in {:0.3f} seconds".format(toc-tic))
 
 	#-----------------------
 

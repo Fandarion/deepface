@@ -54,7 +54,7 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, 
 	if os.path.isdir(db_path) == True:
 		for r, d, f in os.walk(db_path): # r=root, d=directories, f = files
 			for file in f:
-				if ('.jpg' in file):
+				if ('.jpg' in file or '.png' in file):
 					#exact_path = os.path.join(r, file)
 					exact_path = r + "/" + file
 					#print(exact_path)
@@ -93,9 +93,9 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, 
 	if use_cache and os.path.isdir(cache_dir) and os.path.isfile(embeddings_file) and os.path.isfile(embeddings_done_file):
 		embeddings = pd.read_pickle(embeddings_file)
 		embeddings.drop('distance_metric', inplace=True, axis=1)
-		embeddings = embeddings.values
+		embeddings = embeddings.values.tolist()
 		embeddings_done_raw = pd.read_csv(embeddings_done_file, usecols=[1,2])
-		embeddings_done = embeddings_done_raw.values
+		embeddings_done = embeddings_done_raw.values.tolist()
 	else:
 		embeddings = []
 		embeddings_done = []
@@ -124,6 +124,7 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, 
 		df = pd.DataFrame(embeddings, columns = ['employee', 'embedding'])
 		df['distance_metric'] = distance_metric
 		df_check = pd.DataFrame(embeddings_done, columns = ['file', 'sha256'])
+		df['employee'].replace(r'\\', '/', regex=True, inplace=True)
 		df.to_pickle(embeddings_file)
 		df_check.to_csv(embeddings_done_file)
 		toc = time.time()
@@ -144,36 +145,36 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, 
 
 	#------------------------
 	#facial attribute analysis models
-	if not learn_mode:
-		if enable_face_analysis == True:
-			nb_axis = 0
+	# if not learn_mode:
+	if enable_face_analysis == True:
+		nb_axis = 0
 
-			tic = time.time()
-			if 'emotion' in face_analysis_axes:
-				emotion_model = DeepFace.build_model('Emotion')
-				print("Emotion model loaded")
-				nb_axis = nb_axis + 1
+		tic = time.time()
+		if 'emotion' in face_analysis_axes:
+			emotion_model = DeepFace.build_model('Emotion')
+			print("Emotion model loaded")
+			nb_axis = nb_axis + 1
 
-			if 'age' in face_analysis_axes:
-				age_model = DeepFace.build_model('Age')
-				print("Age model loaded")
-				nb_axis = nb_axis + 1
-			if 'race' in face_analysis_axes:
-				race_model = DeepFace.build_model('Race')
-				print("Race model loaded")
-				nb_axis = nb_axis + 1
-			if 'gender' in face_analysis_axes:
-				gender_model = DeepFace.build_model('Gender')
-				print("Gender model loaded")
-				nb_axis = nb_axis + 1
-			if nb_axis == 0:
-				raise ValueError("You want to execute face analysis but face_analysis_axes has no correct value in ['emotion', 'age', 'gendre']")
-			else:
-				print('{} analysis axes required: {}'.format(nb_axis, face_analysis_axes))
+		if 'age' in face_analysis_axes:
+			age_model = DeepFace.build_model('Age')
+			print("Age model loaded")
+			nb_axis = nb_axis + 1
+		if 'race' in face_analysis_axes:
+			race_model = DeepFace.build_model('Race')
+			print("Race model loaded")
+			nb_axis = nb_axis + 1
+		if 'gender' in face_analysis_axes:
+			gender_model = DeepFace.build_model('Gender')
+			print("Gender model loaded")
+			nb_axis = nb_axis + 1
+		if nb_axis == 0:
+			raise ValueError("You want to execute face analysis but face_analysis_axes has no correct value in ['emotion', 'age', 'gendre']")
+		else:
+			print('{} analysis axes required: {}'.format(nb_axis, face_analysis_axes))
 
-			toc = time.time()
+		toc = time.time()
 
-			print("Facial attibute analysis models loaded in {:0.3f} seconds".format(toc-tic))
+		print("Facial attibute analysis models loaded in {:0.3f} seconds".format(toc-tic))
 
 	#-----------------------
 
@@ -273,7 +274,7 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, 
 						if enable_face_analysis == True:
 							if 'emotion' in face_analysis_axes:
     
-								gray_img = functions.preprocess_face(img = custom_face, target_size = (48, 48), grayscale = True, enforce_detection = False)
+								gray_img = functions.preprocess_face(img = custom_face, target_size = (48, 48), grayscale = True, enforce_detection = False, detector_backend=detector_backend)
 								emotion_labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
 								emotion_predictions = emotion_model.predict(gray_img)[0,:]
 								sum_of_predictions = emotion_predictions.sum()
@@ -350,7 +351,7 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, 
 												, (255,255,255), cv2.FILLED)
 							analysis_report = ''
 							#-------------------------------
-							face_224 = functions.preprocess_face(img = custom_face, target_size = (224, 224), grayscale = False, enforce_detection = False)
+							face_224 = functions.preprocess_face(img = custom_face, target_size = (224, 224), grayscale = False, enforce_detection = False, detector_backend=detector_backend)
 
 							if 'age' in face_analysis_axes:
 
@@ -414,7 +415,7 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, 
 						#-------------------------------
 						#face recognition
 
-						custom_face = functions.preprocess_face(img = custom_face, target_size = (input_shape_y, input_shape_x), enforce_detection = False)
+						custom_face = functions.preprocess_face(img = custom_face, target_size = (input_shape_y, input_shape_x), enforce_detection = False, detector_backend=detector_backend)
 
 						#check preprocess_face function handled
 						if custom_face.shape[1:3] == input_shape:
@@ -453,7 +454,7 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, 
 
 									display_img = cv2.resize(display_img, (pivot_img_size, pivot_img_size))
 
-									label = employee_name.split("/")[-1].replace(".jpg", "")
+									label = employee_name.split("/")[-2]
 									label = re.sub('[0-9]', '', label)
 
 									try:

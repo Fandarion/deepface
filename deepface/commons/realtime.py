@@ -15,7 +15,7 @@ from deepface.extendedmodels import Age
 from deepface.commons import functions, realtime, distance as dst
 
 
-def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, face_analysis_axes = ['emotion', 'age', 'gender'],
+def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, face_analysis_axes = ['emotion', 'age', 'gender', 'race'],
 				source = 0, time_threshold = 5, frame_threshold = 5, callback = None, detector_backend = 'opencv',
 				learn_mode = False, use_cache=False, cache_dir=''):
 	"""Args:

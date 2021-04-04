@@ -272,6 +272,29 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, 
 						#facial attribute analysis
 
 						if enable_face_analysis == True:
+							if 'race' in face_analysis_axes:
+								face_224 = functions.preprocess_face(img = custom_face, target_size = (224, 224), grayscale = False, enforce_detection = False, detector_backend=detector_backend)
+
+								race_predictions = race_model.predict(face_224)[0,:]
+								race_labels = ['asian', 'indian', 'black', 'white', 'middle eastern', 'latino hispanic']
+
+								sum_of_predictions = race_predictions.sum()
+								
+								resp_obj = {}
+								for i in range(0, len(race_labels)):
+										race_label = race_labels[i]
+										race_prediction = 100 * race_predictions[i] / sum_of_predictions
+										resp_obj[race_label] = race_prediction
+								
+								resp_obj["dominant_race"] = race_labels[np.argmax(race_predictions)]
+
+								# print('Ethnies: ', resp_obj)
+								print('Ethnie retenue: {} avec une probabilité de {:.2f}%'.format(resp_obj["dominant_race"], resp_obj[resp_obj["dominant_race"]]))
+								# TODO Add the Race prediction to the display result. Cannot use mood_items as expected 
+								# mood_items = []
+								# mood_items.append([resp_obj["dominant_race"], resp_obj[resp_obj["dominant_race"]]])
+								# mood_items.append(['',0])
+
 							if 'emotion' in face_analysis_axes:
     
 								gray_img = functions.preprocess_face(img = custom_face, target_size = (48, 48), grayscale = True, enforce_detection = False, detector_backend=detector_backend)
@@ -349,9 +372,14 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, 
 												, (x-pivot_img_size+70, y + 13 + (index+1) * 20)
 												, (x-pivot_img_size+70+bar_x, y + 13 + (index+1) * 20 + 5)
 												, (255,255,255), cv2.FILLED)
+
+							#-------------------------------
 							analysis_report = ''
 							#-------------------------------
-							face_224 = functions.preprocess_face(img = custom_face, target_size = (224, 224), grayscale = False, enforce_detection = False, detector_backend=detector_backend)
+							try:
+								face_224
+							except UnboundLocalError:
+								face_224 = functions.preprocess_face(img = custom_face, target_size = (224, 224), grayscale = False, enforce_detection = False, detector_backend=detector_backend)
 
 							if 'age' in face_analysis_axes:
 
@@ -543,8 +571,10 @@ def analysis(db_path, model_name, distance_metric, enable_face_analysis = True, 
 				freezed_frame = 0
 
 		else:
-    			if not callback:
-    					cv2.imshow('img',img)
+			if callback:
+	    			callback(raw_img, img)
+			else:
+					cv2.imshow('img',img)
 
 		if cv2.waitKey(1) & 0xFF == ord('q'): #press q to quit
 			break

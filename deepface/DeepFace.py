@@ -727,7 +727,7 @@ def find(img_path, db_path, model_name ='VGG-Face', distance_metric = 'cosine', 
 	return None
 		
 def stream(db_path = '', model_name ='VGG-Face', distance_metric = 'cosine', detector_backend = 'opencv',
-			enable_face_analysis = True, face_analysis_axes = ['emotion', 'age', 'gender'],
+			enable_face_analysis = True, face_analysis_axes = ['emotion', 'age', 'gender', 'race'],
 			source = 0, time_threshold = 5, frame_threshold = 5, callback = None,
 			learn_mode = False, use_cache=False, cache_dir=''):
 	

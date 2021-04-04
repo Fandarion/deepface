@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="deepface",  
+    name="deepface-fork",  
     version="0.0.51",
     author="Sefik Ilkin Serengil, Fandarion",
     author_email="serengil@gmail.com",
